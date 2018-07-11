@@ -52,6 +52,10 @@ type Transaction struct {
 type Block struct {
 	Transactions []Transaction `json:"transactions"`
 	Height       int64         `json:"height"`
+
+	RawBlock struct {
+		Timestamp int64 `json:"timestamp"`
+	} `json:"rawblock"`
 }
 
 //Explorer an explorer client interface

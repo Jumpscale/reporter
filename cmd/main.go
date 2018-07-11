@@ -13,15 +13,18 @@ func main() {
 		panic(err)
 	}
 
+	rep, err := reporter.NewInfluxReporter("http://localhost:8086/rivine")
+	if err != nil {
+		panic(err)
+	}
+
+	defer rep.Flush()
+
 	scanner := exp.Scan(0)
 
 	for blk := range scanner.Scan(context.Background()) {
-		for _, txn := range blk.Transactions {
-			for i, inout := range txn.CoinInputOutputs {
-				fmt.Print("Height: ", blk.Height, " In Value: ", inout.Value, " Source: ", inout.UnlockHash)
-				out := txn.RawTransaction.Data.CoinOutputs[i]
-				fmt.Println(" Destination: ", out.UnlockHash, " Out Value: ", out.Value)
-			}
+		if err := rep.Record(blk); err != nil {
+			panic(err)
 		}
 	}
 
