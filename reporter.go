@@ -178,6 +178,7 @@ func (r *influxReporter) Record(blk *Block) error {
 				"input_addresses":  values.InputAddresses,
 				"output_addresses": values.OutputAddresses,
 				"fees":             values.Fees,
+				"height":           blk.Height,
 			},
 			ts,
 		)

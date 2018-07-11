@@ -23,7 +23,7 @@ type RawTransaction struct {
 	Version int `jons:"version"`
 	Data    struct {
 		CoinOutputs []CoinOutput  `json:"coinoutputs"`
-		MinerFees   []json.Number `json:"minefees"`
+		MinerFees   []json.Number `json:"minerfees"`
 	} `json:"data"`
 }
 
