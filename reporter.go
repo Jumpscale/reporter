@@ -11,7 +11,7 @@ import (
 
 const (
 	InfluxDatabaseName   = "rivine"
-	InfluxPointBatchSize = 100
+	InfluxPointBatchSize = 1
 	InfluxSeriesName     = "transaction"
 )
 
