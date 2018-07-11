@@ -109,47 +109,6 @@ func (r *influxReporter) aggregate(txn *Transaction) (txnValue, error) {
 	return values, nil
 }
 
-func (r *influxReporter) fields(blk *Block) (map[string]interface{}, error) {
-	for _, txn := range blk.Transactions {
-		var values struct {
-			Output          float64
-			Input           float64
-			Fees            float64
-			InputAddresses  int
-			OutputAddresses int
-		}
-		//updating transaction fees
-		for _, fee := range txn.RawTransaction.Data.MinerFees {
-			value, err := fee.Float64()
-			if err != nil {
-				return nil, err
-			}
-
-			values.Fees += value
-		}
-
-		for _, output := range txn.RawTransaction.Data.CoinOutputs {
-			values.OutputAddresses++
-			value, err := output.Value.Float64()
-			if err != nil {
-				return nil, err
-			}
-			values.Output += value
-		}
-
-		for _, input := range txn.CoinInputOutputs {
-			values.InputAddresses++
-			value, err := input.Value.Float64()
-			if err != nil {
-				return nil, err
-			}
-			values.Input += value
-		}
-	}
-
-	return nil, nil
-}
-
 func (r *influxReporter) Record(blk *Block) error {
 	if r.batch == nil {
 		var err error
@@ -164,10 +123,6 @@ func (r *influxReporter) Record(blk *Block) error {
 		values, err := r.aggregate(&txn)
 		if err != nil {
 			return err
-		}
-		//todo: should we record transactions with 0 token movement ?
-		if values.Output == 0 {
-			continue
 		}
 
 		point, err := influxdb.NewPoint(
