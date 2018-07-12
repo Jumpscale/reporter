@@ -14,7 +14,12 @@ func main() {
 		panic(err)
 	}
 
-	rep, err := reporter.NewInfluxRecorder("http://localhost:8086/rivine", 200, 30*time.Second)
+	cl, err := reporter.NewInfluxDB("http://localhost:8086/rivine")
+	if err != nil {
+		panic(err)
+	}
+
+	rep, err := reporter.NewInfluxRecorder(cl, 200, 30*time.Second)
 	if err != nil {
 		panic(err)
 	}

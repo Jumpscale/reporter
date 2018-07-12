@@ -3,8 +3,6 @@ package reporter
 import (
 	"context"
 	"fmt"
-	"net/url"
-	"strings"
 	"sync"
 	"time"
 
@@ -31,9 +29,8 @@ type txnValue struct {
 	OutputAddresses int
 }
 
-type influxReporter struct {
-	cl            influxdb.Client
-	db            string
+type InfluxRecorder struct {
+	cl            *InfluxClient
 	batchSize     int
 	batch         influxdb.BatchPoints
 	flushInterval time.Duration
@@ -43,46 +40,12 @@ type influxReporter struct {
 }
 
 //NewInfluxRecorder creates a new reporter for influxdb
-func NewInfluxRecorder(u string, batchSize int, flushInterval time.Duration) (Recorder, error) {
-	uri, err := url.Parse(u)
-	if err != nil {
-		return nil, err
-	}
-
-	var config influxdb.HTTPConfig
-	if uri.User != nil {
-		config.Username = uri.User.Username()
-		if password, ok := uri.User.Password(); ok {
-			config.Password = password
-		}
-	}
-
-	config.Addr = fmt.Sprintf("%s://%s", uri.Scheme, uri.Host)
-	cl, err := influxdb.NewHTTPClient(config)
-	if err != nil {
-		return nil, err
-	}
-
-	reporter := &influxReporter{cl: cl, batchSize: batchSize, flushInterval: flushInterval}
-	return reporter, reporter.init(strings.Trim(uri.Path, "/"))
+func NewInfluxRecorder(cl *InfluxClient, batchSize int, flushInterval time.Duration) (Recorder, error) {
+	reporter := &InfluxRecorder{cl: cl, batchSize: batchSize, flushInterval: flushInterval}
+	return reporter, reporter.init()
 }
 
-func (r *influxReporter) init(db string) error {
-	//initialize database
-	if db == "" {
-		db = InfluxDatabaseName
-	}
-	r.db = db
-	query := fmt.Sprintf("create database %s", db)
-	response, err := r.cl.Query(influxdb.NewQuery(query, "", ""))
-	if err != nil {
-		return err
-	}
-
-	if err := response.Error(); err != nil {
-		return err
-	}
-
+func (r *InfluxRecorder) init() error {
 	//start flusher routine
 	ctx, cancel := context.WithCancel(context.Background())
 	r.cancel = cancel
@@ -102,7 +65,7 @@ func (r *influxReporter) init(db string) error {
 	return nil
 }
 
-func (r *influxReporter) aggregate(txn *Transaction) (txnValue, error) {
+func (r *InfluxRecorder) aggregate(txn *Transaction) (txnValue, error) {
 	var values txnValue
 
 	//updating transaction fees
@@ -136,13 +99,13 @@ func (r *influxReporter) aggregate(txn *Transaction) (txnValue, error) {
 	return values, nil
 }
 
-func (r *influxReporter) Record(blk *Block) error {
+func (r *InfluxRecorder) Record(blk *Block) error {
 	r.m.Lock()
 	defer r.m.Unlock()
 
 	if r.batch == nil {
 		var err error
-		r.batch, err = influxdb.NewBatchPoints(influxdb.BatchPointsConfig{Database: r.db})
+		r.batch, err = influxdb.NewBatchPoints(influxdb.BatchPointsConfig{Database: r.cl.Database})
 		if err != nil {
 			return err
 		}
@@ -182,13 +145,13 @@ func (r *influxReporter) Record(blk *Block) error {
 	return nil
 }
 
-func (r *influxReporter) flush() error {
+func (r *InfluxRecorder) flush() error {
 	r.m.Lock()
 	defer r.m.Unlock()
 	return r._flush()
 }
 
-func (r *influxReporter) _flush() error {
+func (r *InfluxRecorder) _flush() error {
 	if r.batch != nil && len(r.batch.Points()) > 0 {
 		fmt.Println("flush:", len(r.batch.Points()))
 		if err := r.cl.Write(r.batch); err != nil {
@@ -201,7 +164,7 @@ func (r *influxReporter) _flush() error {
 	return nil
 }
 
-func (r *influxReporter) Close() error {
+func (r *InfluxRecorder) Close() error {
 	if r.cancel != nil {
 		r.cancel()
 	}
