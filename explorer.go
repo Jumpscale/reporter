@@ -54,7 +54,8 @@ type Block struct {
 	Height       int64         `json:"height"`
 
 	RawBlock struct {
-		Timestamp int64 `json:"timestamp"`
+		Timestamp    int64         `json:"timestamp"`
+		MinerPayouts []InputOutput `json:"minerpayouts"`
 	} `json:"rawblock"`
 }
 
