@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/rivine/reporter"
 )
@@ -13,12 +14,12 @@ func main() {
 		panic(err)
 	}
 
-	rep, err := reporter.NewInfluxReporter("http://localhost:8086/rivine")
+	rep, err := reporter.NewInfluxRecorder("http://localhost:8086/rivine", 200, 30*time.Second)
 	if err != nil {
 		panic(err)
 	}
 
-	defer rep.Flush()
+	defer rep.Close()
 
 	scanner := exp.Scan(0)
 
