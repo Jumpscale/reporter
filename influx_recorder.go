@@ -27,6 +27,10 @@ const (
 	LastMonth Period = "4w"
 )
 
+var (
+	NoValueError = fmt.Errorf("no value")
+)
+
 //Period look back period
 type Period string
 
@@ -49,7 +53,11 @@ type InfluxRecorder struct {
 }
 
 //NewInfluxRecorder creates a new reporter for influxdb
-func NewInfluxRecorder(cl *InfluxClient, batchSize int, flushInterval time.Duration) (*InfluxRecorder, error) {
+func NewInfluxRecorder(u string, batchSize int, flushInterval time.Duration) (*InfluxRecorder, error) {
+	cl, err := newInfluxDB(u)
+	if err != nil {
+		return nil, err
+	}
 	reporter := &InfluxRecorder{cl: cl, batchSize: batchSize, flushInterval: flushInterval}
 	return reporter, reporter.init()
 }
@@ -181,7 +189,7 @@ func (r *InfluxRecorder) Close() error {
 	return r.flush()
 }
 
-func (q *InfluxRecorder) floatValue(response *influxdb.Response, col int) (float64, error) {
+func (r *InfluxRecorder) floatValue(response *influxdb.Response, col int) (float64, error) {
 	var value interface{}
 	if len(response.Results) > 0 {
 		result := response.Results[0]
@@ -201,7 +209,7 @@ func (q *InfluxRecorder) floatValue(response *influxdb.Response, col int) (float
 
 	switch value := value.(type) {
 	case nil:
-		return 0, fmt.Errorf("no value")
+		return 0, NoValueError
 	case float64:
 		return value, nil
 	case int64:
@@ -213,12 +221,27 @@ func (q *InfluxRecorder) floatValue(response *influxdb.Response, col int) (float
 	}
 }
 
+//Height returns the last reported height in the database
+func (r *InfluxRecorder) Height() (int64, error) {
+	response, err := r.cl.Query(influxdb.NewQuery("select last(height) as height from transaction;", r.cl.Database, ""))
+	if err != nil {
+		return 0, err
+	}
+
+	f, err := r.floatValue(response, 1)
+	if err != nil && err != NoValueError {
+		return 0, err
+	}
+
+	return int64(f), nil
+}
+
 //TransactedToken return transacted tokens in the look back period
-func (q *InfluxRecorder) TransactedToken(period Period) (float64, error) {
-	response, err := q.cl.Query(
+func (r *InfluxRecorder) TransactedToken(period Period) (float64, error) {
+	response, err := r.cl.Query(
 		influxdb.NewQuery(
 			fmt.Sprintf("SELECT sum(input) as total FROM transaction WHERE time >= now() - %s;", period),
-			q.cl.Database,
+			r.cl.Database,
 			"",
 		),
 	)
@@ -230,11 +253,11 @@ func (q *InfluxRecorder) TransactedToken(period Period) (float64, error) {
 		return 0, err
 	}
 
-	return q.floatValue(response, 1)
+	return r.floatValue(response, 1)
 }
 
 //TotalTokens total tokens on the chain
-func (q *InfluxRecorder) TotalTokens() (float64, error) {
+func (r *InfluxRecorder) TotalTokens() (float64, error) {
 	/*
 		TODO:
 		total := amount of coins in genesis coin outputs + (block height - 1) * block reward
@@ -245,8 +268,8 @@ func (q *InfluxRecorder) TotalTokens() (float64, error) {
 
 		we need to change this to work with any rivine block chain by making those variables configurable
 	*/
-	response, err := q.cl.Query(
-		influxdb.NewQuery("SELECT 695099000 + last(height) - 1 as total FROM transaction;", q.cl.Database, ""),
+	response, err := r.cl.Query(
+		influxdb.NewQuery("SELECT 695099000 + last(height) - 1 as total FROM transaction;", r.cl.Database, ""),
 	)
 	if err != nil {
 		return 0, err
@@ -256,5 +279,5 @@ func (q *InfluxRecorder) TotalTokens() (float64, error) {
 		return 0, err
 	}
 
-	return q.floatValue(response, 1)
+	return r.floatValue(response, 1)
 }

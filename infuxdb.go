@@ -15,7 +15,7 @@ type InfluxClient struct {
 }
 
 //NewInfluxDB creates a client connection from url
-func NewInfluxDB(u string) (*InfluxClient, error) {
+func newInfluxDB(u string) (*InfluxClient, error) {
 	uri, err := url.Parse(u)
 	if err != nil {
 		return nil, err
