@@ -96,6 +96,7 @@ func (r *AddressRecorder) Record(blk *Block) error {
 			if err != nil && err != buntdb.ErrNotFound {
 				return err
 			}
+
 			var current float64
 			if len(currentStr) > 0 {
 				current, err = strconv.ParseFloat(currentStr, 64)
@@ -110,9 +111,21 @@ func (r *AddressRecorder) Record(blk *Block) error {
 
 		return nil
 	})
+
+	return nil
 }
 
 //Close the recorder, any calls to record after that will fail
 func (r *AddressRecorder) Close() error {
 	return r.db.Close()
+}
+
+func (r *AddressRecorder) Addresses() {
+	r.db.View(func(tx *buntdb.Tx) error {
+		tx.Ascend("", func(k, v string) bool {
+			fmt.Println(k, ": ", v)
+			return true
+		})
+		return nil
+	})
 }

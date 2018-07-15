@@ -1,8 +1,6 @@
 package main
 
 import (
-	"fmt"
-
 	"github.com/rivine/reporter"
 )
 
@@ -29,17 +27,18 @@ func main() {
 		panic(err)
 	}
 
-	for i := int64(0); i < 100; i++ {
+	for i := int64(0); i < 1000; i++ {
 		blk, err := exp.GetBlock(i)
 		if err != nil {
 			panic(err)
 		}
 
-		fmt.Println(blk.Height)
 		if err := rep.Record(blk); err != nil {
 			panic(err)
 		}
 
 	}
+
+	rep.Addresses()
 
 }
