@@ -1,10 +1,10 @@
 package reporter
 
 import (
+	"database/sql"
 	"fmt"
-	"strconv"
 
-	"github.com/tidwall/buntdb"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 const (
@@ -17,30 +17,24 @@ const (
 type Addresses map[string]float64
 
 type AddressRecorder struct {
-	db *buntdb.DB
+	db *sql.DB
 }
 
 func NewAddressRecorder(p string) (*AddressRecorder, error) {
-	db, err := buntdb.Open(p)
+	db, err := sql.Open("sqlite3", p)
 	if err != nil {
 		return nil, err
 	}
+	exec := `
+	create table if not exists unlockhash (
+		address text not null primary key,
+		value real
+	);
 
-	err = db.Update(func(tx *buntdb.Tx) error {
-		idxes, err := tx.Indexes()
-		if err != nil {
-			return err
-		}
-
-		for _, idx := range idxes {
-			if idx == BuntdbIndexNames {
-				return nil
-			}
-		}
-
-		return tx.CreateIndex(BuntdbIndexNames, "*", buntdb.IndexFloat)
-	})
-
+	create index if not exists add_index on unlockhash (address);
+	create index if not exists value_index on unlockhash (value);
+	`
+	_, err = db.Exec(exec)
 	if err != nil {
 		return nil, err
 	}
@@ -75,6 +69,24 @@ func (r *AddressRecorder) aggregate(addresses Addresses, txn *Transaction) error
 	return nil
 }
 
+//Get tokens on this address
+func (r *AddressRecorder) Get(address string) (float64, error) {
+	row := r.db.QueryRow("select value from unlockhash where address = ?;", address)
+	var value float64
+	if err := row.Scan(&value); err == sql.ErrNoRows {
+		return 0, nil
+	} else if err != nil {
+		return 0, err
+	}
+
+	return value, nil
+}
+
+func (r *AddressRecorder) set(address string, value float64) error {
+	_, err := r.db.Exec("insert or replace into unlockhash (address, value) values (?, ?);", address, value)
+	return err
+}
+
 //Record record a block on the address recorder
 func (r *AddressRecorder) Record(blk *Block) error {
 	addresses := Addresses{}
@@ -90,27 +102,16 @@ func (r *AddressRecorder) Record(blk *Block) error {
 		}
 	}
 
-	return r.db.Update(func(tx *buntdb.Tx) error {
-		for add, delta := range addresses {
-			currentStr, err := tx.Get(add)
-			if err != nil && err != buntdb.ErrNotFound {
-				return err
-			}
-
-			var current float64
-			if len(currentStr) > 0 {
-				current, err = strconv.ParseFloat(currentStr, 64)
-				if err != nil {
-					return err
-				}
-			}
-
-			_, _, err = tx.Set(add, fmt.Sprint(current+delta), nil)
+	for add, delta := range addresses {
+		current, err := r.Get(add)
+		if err != nil {
 			return err
 		}
 
-		return nil
-	})
+		if err := r.set(add, current+delta); err != nil {
+			return err
+		}
+	}
 
 	return nil
 }
@@ -120,12 +121,23 @@ func (r *AddressRecorder) Close() error {
 	return r.db.Close()
 }
 
-func (r *AddressRecorder) Addresses() {
-	r.db.View(func(tx *buntdb.Tx) error {
-		tx.Ascend("", func(k, v string) bool {
-			fmt.Println(k, ": ", v)
-			return true
-		})
-		return nil
-	})
+func (r *AddressRecorder) Addresses(over float64, page, size int) error {
+	rows, err := r.db.Query("select address, value from unlockhash where value >= ? order by value desc limit ? offset ?;", over, size, page*size)
+	if err != nil {
+		return err
+	}
+
+	defer rows.Close()
+
+	for rows.Next() {
+		var address string
+		var value float64
+		if err := rows.Scan(&address, &value); err != nil {
+			return err
+		}
+
+		fmt.Printf("Key: %s Value: %f\n", address, value)
+	}
+
+	return nil
 }

@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+
 	"github.com/rivine/reporter"
 )
 
@@ -22,7 +24,7 @@ func main() {
 
 	// defer rep.Close()
 
-	rep, err := reporter.NewAddressRecorder(":memory:")
+	rep, err := reporter.NewAddressRecorder("test.db")
 	if err != nil {
 		panic(err)
 	}
@@ -39,6 +41,5 @@ func main() {
 
 	}
 
-	rep.Addresses()
-
+	fmt.Println(rep.Addresses(710100000000.000000, 0, 3))
 }
