@@ -12,17 +12,11 @@ import (
 	"time"
 )
 
-//CoinOutput struct
-type CoinOutput struct {
-	Value      json.Number `json:"value"`
-	UnlockHash string      `json:"unlockhash"`
-}
-
 //RawTransaction struct
 type RawTransaction struct {
 	Version int `jons:"version"`
 	Data    struct {
-		CoinOutputs []CoinOutput  `json:"coinoutputs"`
+		CoinOutputs []InputOutput `json:"coinoutputs"`
 		MinerFees   []json.Number `json:"minerfees"`
 	} `json:"data"`
 }
