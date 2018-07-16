@@ -21,11 +21,31 @@ type RawTransaction struct {
 	} `json:"data"`
 }
 
+type SubCondition struct {
+	Type byte `json:"type"`
+	Data struct {
+		UnlockHash string `json:"unlockhash"`
+	} `json:"data"`
+}
+
+type Condition struct {
+	Type byte `json:"type"`
+	Data struct {
+		UnlockHash string `json:"unlockhash"`
+		//Condition  SubCondition `json:"condition"`
+	} `json:"data"`
+}
+
 //InputOutput struct
 type InputOutput struct {
 	Value      json.Number `json:"value"`
 	UnlockHash string      `json:"unlockhash"`
-	//condition (we ignore for now)
+	Condition  struct {
+		Type byte `json:"type"`
+		Data struct {
+			UnlockHash string `json:"unlockhash"`
+		} `json:"data"`
+	} `json:"condition"`
 }
 
 //Transaction struct
@@ -36,10 +56,6 @@ type Transaction struct {
 
 	RawTransaction   RawTransaction `json:"rawtransaction"`
 	CoinInputOutputs []InputOutput  `json:"coininputoutputs"`
-	//CoinOutputUnlockHashes []string       `json:"coinoutputunlockhashes"`
-
-	// BlockStakeOutputIDs    []string      `json:"blockstakeoutputids"`
-	// BlockStakeUnlockHashes []string      `json:"blockstakeunlockhashes"`
 }
 
 //Block struct

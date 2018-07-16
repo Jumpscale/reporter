@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"sync"
 	"time"
 
@@ -29,10 +30,35 @@ const (
 
 var (
 	NoValueError = fmt.Errorf("no value")
+
+	periodP      = regexp.MustCompile(`^\d+(\w{1,2})$`)
+	periodSuffix = map[string]struct{}{
+		"u":  struct{}{},
+		"ms": struct{}{},
+		"s":  struct{}{},
+		"m":  struct{}{},
+		"h":  struct{}{},
+		"d":  struct{}{},
+		"w":  struct{}{},
+	}
 )
 
 //Period look back period
 type Period string
+
+//Valid validate period string
+func (p Period) Valid() error {
+	m := periodP.FindStringSubmatch(string(p))
+	if len(m) == 0 {
+		return fmt.Errorf("invalid period format, expecting <number><suffix>")
+	}
+
+	if _, ok := periodSuffix[m[1]]; !ok {
+		return fmt.Errorf("invalid period suffix, where suffix is one of (u, ms, s, m, h, d, w)")
+	}
+
+	return nil
+}
 
 type txnValue struct {
 	Output          float64
@@ -181,6 +207,7 @@ func (r *InfluxRecorder) _flush() error {
 	return nil
 }
 
+//Close the recorder, and flushes any points in buffer
 func (r *InfluxRecorder) Close() error {
 	if r.cancel != nil {
 		r.cancel()
@@ -238,6 +265,10 @@ func (r *InfluxRecorder) Height() (int64, error) {
 
 //TransactedToken return transacted tokens in the look back period
 func (r *InfluxRecorder) TransactedToken(period Period) (float64, error) {
+	if err := period.Valid(); err != nil {
+		return 0, err
+	}
+
 	response, err := r.cl.Query(
 		influxdb.NewQuery(
 			fmt.Sprintf("SELECT sum(input) as total FROM transaction WHERE time >= now() - %s;", period),

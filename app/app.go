@@ -38,14 +38,14 @@ func (r *Reporter) Run() error {
 
 	scanner := r.Explorer.Scan(r.Height)
 	for blk := range scanner.Scan(ctx) {
+		log.Debugf("processing block %d", blk.Height)
 		for _, recorder := range r.Recorders {
 			if err := recorder.Record(blk); err != nil {
+				log.Errorf("error processing block (%d): %s", blk.Height, err)
 				return err
 			}
 		}
 	}
-
-	log.Debugf("scanner exited")
 
 	return scanner.Err()
 }

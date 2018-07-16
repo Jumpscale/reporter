@@ -2,6 +2,7 @@ package reporter
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -13,6 +14,16 @@ const (
 	opAdd = 1
 	opSub = -1
 )
+
+type Address struct {
+	Address string
+	Tokens  float64
+}
+
+func (a Address) MarshalJSON() (text []byte, err error) {
+	m := [2]interface{}{a.Address, a.Tokens}
+	return json.Marshal(m)
+}
 
 type Addresses map[string]float64
 
@@ -44,12 +55,27 @@ func NewAddressRecorder(p string) (*AddressRecorder, error) {
 
 func (r *AddressRecorder) processInputOutputs(addresses Addresses, i []InputOutput, op float64) error {
 	for _, inout := range i {
+		unlockeHash := inout.UnlockHash
+
+		if len(unlockeHash) == 0 {
+			if inout.Condition.Type == 1 {
+				unlockeHash = inout.Condition.Data.UnlockHash
+			} else {
+				log.Warningf("we still don't handle condition type: %d (skip)", inout.Condition.Type)
+				continue
+			}
+		}
+
+		if len(unlockeHash) == 0 {
+			return fmt.Errorf("empty unlock hash")
+		}
+
 		delta, err := inout.Value.Float64()
 		if err != nil {
 			return err
 		}
 
-		addresses[inout.UnlockHash] += op * delta
+		addresses[unlockeHash] += op * delta
 	}
 
 	return nil
@@ -121,23 +147,27 @@ func (r *AddressRecorder) Close() error {
 	return r.db.Close()
 }
 
-func (r *AddressRecorder) Addresses(over float64, page, size int) error {
+//Addresses returns addresses
+func (r *AddressRecorder) Addresses(over float64, page, size int) ([]Address, error) {
 	rows, err := r.db.Query("select address, value from unlockhash where value >= ? order by value desc limit ? offset ?;", over, size, page*size)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	defer rows.Close()
 
+	var addresses []Address
+
 	for rows.Next() {
-		var address string
-		var value float64
-		if err := rows.Scan(&address, &value); err != nil {
-			return err
+		var address Address
+		// var address string
+		// var value float64
+		if err := rows.Scan(&address.Address, &address.Tokens); err != nil {
+			return nil, err
 		}
 
-		fmt.Printf("Key: %s Value: %f\n", address, value)
+		addresses = append(addresses, address)
 	}
 
-	return nil
+	return addresses, nil
 }

@@ -23,7 +23,6 @@ func waitSignal() {
 	go func() {
 		defer wg.Done()
 		for range ch {
-			fmt.Println("signal received")
 			return
 		}
 	}()
@@ -75,11 +74,22 @@ func action(ctx *cli.Context) error {
 		Height:    height,
 	}
 
+	api := app.API{
+		InfluxRecorder:  influx,
+		AddressRecorder: addrRecder,
+	}
+
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
 		err = reporter.Run()
 		wg.Done()
+	}()
+
+	go func() {
+		if err := api.Run(); err != nil {
+			fmt.Println("api error:", err)
+		}
 	}()
 
 	waitSignal()
@@ -92,6 +102,7 @@ func action(ctx *cli.Context) error {
 func main() {
 	app := cli.App{
 		Name:        "rivine-reporter",
+		Version:     "0.1",
 		Description: "Collect statistics about rivine addresses and transactions",
 		Flags: []cli.Flag{
 			cli.StringFlag{
