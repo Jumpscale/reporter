@@ -43,7 +43,7 @@ func (a *API) Run() error {
 	engine.GET("tokens/total", jsonAction(a.total))
 	engine.GET("tokens/transacted", jsonAction(a.transacted))
 	engine.GET("address", jsonAction(a.addresses))
-	engine.GET("address/:address")
+	engine.GET("address/:address", jsonAction(a.address))
 
 	return engine.Run(":8080")
 }
@@ -79,6 +79,10 @@ func (a *API) addresses(ctx *gin.Context) (interface{}, error) {
 	if page, err = strconv.ParseInt(ctx.DefaultQuery("page", "0"), 10, 32); err != nil {
 		return nil, err
 	}
-	log.Debugf("addresses over: %v page: %v size: %v", over, page, size)
+
 	return a.AddressRecorder.Addresses(over, int(page), int(size))
+}
+
+func (a *API) address(ctx *gin.Context) (interface{}, error) {
+	return a.AddressRecorder.Get(ctx.Param("address"))
 }
