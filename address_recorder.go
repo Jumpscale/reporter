@@ -56,6 +56,25 @@ func NewAddressRecorder(p string) (*AddressRecorder, error) {
 func (r *AddressRecorder) unlockHashes(c *Condition) ([]string, error) {
 	var hashes []string
 	switch c.Type {
+	case NilCondtion:
+		/*
+			Nil condition is funny
+
+			Quote:
+			"""
+			Lee Smet, [18.07.18 11:43]
+			nil conditions mean there is no particular condition which needs to be fulfilled in order to spend the output
+
+			Lee Smet, [18.07.18 11:44]
+			anyone can spend it, by using a regular singlesignature fullfilment using any key
+
+			Lee Smet, [18.07.18 11:45]
+			Its basically like throwing money on the street and waiting for someone to notice it and pick it up »
+			"""
+
+			In that case, someone will redirect this fund (in another transaction) to a certian address, so i think
+			it's okay to ignore it
+		*/
 	case UnlockHashCondition:
 		data := c.UnlockHashData()
 		hashes = append(hashes, data.UnlockHash)
