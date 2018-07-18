@@ -53,21 +53,79 @@ func NewAddressRecorder(p string) (*AddressRecorder, error) {
 	return &AddressRecorder{db: db}, nil
 }
 
-func (r *AddressRecorder) processInputOutputs(addresses Addresses, i []InputOutput, op float64) error {
-	for _, inout := range i {
-		unlockeHash := inout.UnlockHash
+func (r *AddressRecorder) unlockHashes(c *Condition) ([]string, error) {
+	var hashes []string
+	switch c.Type {
+	case NilCondtion:
+		/*
+			Nil condition is funny
 
-		if len(unlockeHash) == 0 {
-			if inout.Condition.Type == 1 {
-				unlockeHash = inout.Condition.Data.UnlockHash
-			} else {
-				log.Warningf("we still don't handle condition type: %d (skip)", inout.Condition.Type)
-				continue
-			}
+			Quote:
+			"""
+			Lee Smet, [18.07.18 11:43]
+			nil conditions mean there is no particular condition which needs to be fulfilled in order to spend the output
+
+			Lee Smet, [18.07.18 11:44]
+			anyone can spend it, by using a regular singlesignature fullfilment using any key
+
+			Lee Smet, [18.07.18 11:45]
+			Its basically like throwing money on the street and waiting for someone to notice it and pick it up »
+			"""
+
+			In that case, someone will redirect this fund (in another transaction) to a certian address, so i think
+			it's okay to ignore it
+		*/
+	case UnlockHashCondition:
+		data := c.UnlockHashData()
+		hashes = append(hashes, data.UnlockHash)
+	case TimeLockCondition:
+		data := c.TimeLockData()
+		subHashes, err := r.unlockHashes(&data.Condition)
+		if err != nil {
+			return nil, err
 		}
+		hashes = append(hashes, subHashes...)
+	case AtomicSwapCondition:
+		/*
+			Atomic swap always come in 2 transactions. The first one (this one here)
+			defines the potential addresses that can receive the fund (source and dest)
+			then followed by another one that actually moves the fund to either the source (refund)
+			or the dest.
 
-		if len(unlockeHash) == 0 {
-			return fmt.Errorf("empty unlock hash")
+			It means for us we can ignore this atomic swap condition for now, and rely on the second
+			transaction to actually do the move.
+
+			Of course during this time, the (fund) is actually locked (not liquid) and we might
+			have to process this differently if we need to keep track of the liquid vs non-liquid tokens
+		*/
+	case MultiSignatureCondition:
+		/*
+			Multisignature is kinda tricky, since non of the receiver hashes owns the fund until they spend it
+			so we need to build groups for those at some point where they can only spend money from that shared
+			fund.
+
+			For now we will assume that each address owns the full amount.
+		*/
+		data := c.MultiSignatureCondition()
+		hashes = data.UnlockHashes
+	default:
+		return nil, fmt.Errorf("unhandled condition type: %v", c.Type)
+	}
+
+	return hashes, nil
+}
+
+func (r *AddressRecorder) processInputOutputs(addresses Addresses, i []InputOutput, op float64) error {
+	for i, inout := range i {
+		var unlockHashes []string
+		if len(inout.UnlockHash) != 0 {
+			unlockHashes = []string{inout.UnlockHash}
+		} else {
+			var err error
+			unlockHashes, err = r.unlockHashes(&inout.Condition)
+			if err != nil {
+				return fmt.Errorf("at index (%d): %s", i, err)
+			}
 		}
 
 		delta, err := inout.Value.Float64()
@@ -75,7 +133,9 @@ func (r *AddressRecorder) processInputOutputs(addresses Addresses, i []InputOutp
 			return err
 		}
 
-		addresses[unlockeHash] += op * delta
+		for _, hash := range unlockHashes {
+			addresses[hash] += op * delta
+		}
 	}
 
 	return nil
@@ -85,11 +145,11 @@ func (r *AddressRecorder) aggregate(addresses Addresses, txn *Transaction) error
 	//updating transaction fees
 
 	if err := r.processInputOutputs(addresses, txn.RawTransaction.Data.CoinOutputs, opAdd); err != nil {
-		return err
+		return fmt.Errorf("aggregate coinoutputs: %v", err)
 	}
 
 	if err := r.processInputOutputs(addresses, txn.CoinInputOutputs, opSub); err != nil {
-		return err
+		return fmt.Errorf("aggregate inputouts: %v", err)
 	}
 
 	return nil
@@ -119,12 +179,12 @@ func (r *AddressRecorder) Record(blk *Block) error {
 
 	//add miner fees
 	if err := r.processInputOutputs(addresses, blk.RawBlock.MinerPayouts, opAdd); err != nil {
-		return err
+		return fmt.Errorf("process minerfees: %v", err)
 	}
 
-	for _, txn := range blk.Transactions {
+	for i, txn := range blk.Transactions {
 		if err := r.aggregate(addresses, &txn); err != nil {
-			return err
+			return fmt.Errorf("transaction (%d): %v", i, err)
 		}
 	}
 
