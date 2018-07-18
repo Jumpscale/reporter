@@ -79,6 +79,16 @@ func (r *AddressRecorder) unlockHashes(c *Condition) ([]string, error) {
 			Of course during this time, the (fund) is actually locked (not liquid) and we might
 			have to process this differently if we need to keep track of the liquid vs non-liquid tokens
 		*/
+	case MultiSignatureCondition:
+		/*
+			Multisignature is kinda tricky, since non of the receiver hashes owns the fund until they spend it
+			so we need to build groups for those at some point where they can only spend money from that shared
+			fund.
+
+			For now we will assume that each address owns the full amount.
+		*/
+		data := c.MultiSignatureCondition()
+		hashes = data.UnlockHashes
 	default:
 		return nil, fmt.Errorf("unhandled condition type: %v", c.Type)
 	}
@@ -98,10 +108,6 @@ func (r *AddressRecorder) processInputOutputs(addresses Addresses, i []InputOutp
 				return fmt.Errorf("at index (%d): %s", i, err)
 			}
 		}
-
-		// if len(unlockHashes) == 0 {
-		// 	return fmt.Errorf("empty unlock hash")
-		// }
 
 		delta, err := inout.Value.Float64()
 		if err != nil {

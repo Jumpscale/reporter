@@ -73,6 +73,16 @@ func (c *Condition) TimeLockData() TimeLockConditionData {
 	return data
 }
 
+func (c *Condition) MultiSignatureCondition() MultiSignatureConditionData {
+	if c.Type != MultiSignatureCondition {
+		panic(fmt.Sprintf("condition type != %d", UnlockHashCondition))
+	}
+
+	var data MultiSignatureConditionData
+	json.Unmarshal(c.Data, &data)
+	return data
+}
+
 //InputOutput struct
 type InputOutput struct {
 	Value      json.Number `json:"value"`
