@@ -28,24 +28,63 @@ type SubCondition struct {
 	} `json:"data"`
 }
 
+type ConditionType byte
+
+const (
+	NilCondtion ConditionType = iota
+	UnlockHashCondition
+	AtomicSwapCondition
+	TimeLockCondition
+	MultiSignatureCondition
+)
+
+type UnlockHashConditionData struct {
+	UnlockHash string `json:"unlockhash"`
+}
+
+type AtomicSwapConditionData struct {
+}
+
+type TimeLockConditionData struct {
+	LockTime  int64     `json:"locktime"`
+	Condition Condition `jons:"condition"`
+}
+
+type MultiSignatureConditionData struct {
+	UnlockHashes          []string `json:"unlockhashes"`
+	MinimumSignatureCount int      `json:"minimumsignaturecount"`
+}
+
 type Condition struct {
-	Type byte `json:"type"`
-	Data struct {
-		UnlockHash string `json:"unlockhash"`
-		//Condition  SubCondition `json:"condition"`
-	} `json:"data"`
+	Type ConditionType   `json:"type"`
+	Data json.RawMessage `json:"data"`
+}
+
+func (c *Condition) UnlockHashData() UnlockHashConditionData {
+	if c.Type != UnlockHashCondition {
+		panic(fmt.Sprintf("condition type != %d", UnlockHashCondition))
+	}
+
+	var data UnlockHashConditionData
+	json.Unmarshal(c.Data, &data)
+	return data
+}
+
+func (c *Condition) TimeLockData() TimeLockConditionData {
+	if c.Type != TimeLockCondition {
+		panic(fmt.Sprintf("condition type != %d", UnlockHashCondition))
+	}
+
+	var data TimeLockConditionData
+	json.Unmarshal(c.Data, &data)
+	return data
 }
 
 //InputOutput struct
 type InputOutput struct {
 	Value      json.Number `json:"value"`
 	UnlockHash string      `json:"unlockhash"`
-	Condition  struct {
-		Type byte `json:"type"`
-		Data struct {
-			UnlockHash string `json:"unlockhash"`
-		} `json:"data"`
-	} `json:"condition"`
+	Condition  Condition   `json:"conditions"`
 }
 
 //Transaction struct

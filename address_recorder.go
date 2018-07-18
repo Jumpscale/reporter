@@ -53,20 +53,40 @@ func NewAddressRecorder(p string) (*AddressRecorder, error) {
 	return &AddressRecorder{db: db}, nil
 }
 
-func (r *AddressRecorder) processInputOutputs(addresses Addresses, i []InputOutput, op float64) error {
-	for _, inout := range i {
-		unlockeHash := inout.UnlockHash
+func (r *AddressRecorder) unlockHashes(c *Condition) ([]string, error) {
+	var hashes []string
+	switch c.Type {
+	case UnlockHashCondition:
+		data := c.UnlockHashData()
+		hashes = append(hashes, data.UnlockHash)
+	case TimeLockCondition:
+		data := c.TimeLockData()
+		subHashes, err := r.unlockHashes(&data.Condition)
+		if err != nil {
+			return nil, err
+		}
+		hashes = append(hashes, subHashes...)
+	default:
+		return nil, fmt.Errorf("unhandled condition type: %v", c.Type)
+	}
 
-		if len(unlockeHash) == 0 {
-			if inout.Condition.Type == 1 {
-				unlockeHash = inout.Condition.Data.UnlockHash
-			} else {
-				log.Warningf("we still don't handle condition type: %d (skip)", inout.Condition.Type)
-				continue
+	return hashes, nil
+}
+
+func (r *AddressRecorder) processInputOutputs(addresses Addresses, i []InputOutput, op float64) error {
+	for i, inout := range i {
+		var unlockHashes []string
+		if len(inout.UnlockHash) != 0 {
+			unlockHashes = []string{inout.UnlockHash}
+		} else {
+			var err error
+			unlockHashes, err = r.unlockHashes(&inout.Condition)
+			if err != nil {
+				return fmt.Errorf("at index (%d): err", i)
 			}
 		}
 
-		if len(unlockeHash) == 0 {
+		if len(unlockHashes) == 0 {
 			return fmt.Errorf("empty unlock hash")
 		}
 
@@ -75,7 +95,9 @@ func (r *AddressRecorder) processInputOutputs(addresses Addresses, i []InputOutp
 			return err
 		}
 
-		addresses[unlockeHash] += op * delta
+		for _, hash := range unlockHashes {
+			addresses[hash] += op * delta
+		}
 	}
 
 	return nil
@@ -85,11 +107,11 @@ func (r *AddressRecorder) aggregate(addresses Addresses, txn *Transaction) error
 	//updating transaction fees
 
 	if err := r.processInputOutputs(addresses, txn.RawTransaction.Data.CoinOutputs, opAdd); err != nil {
-		return err
+		return fmt.Errorf("aggregate coinoutputs: %v", err)
 	}
 
 	if err := r.processInputOutputs(addresses, txn.CoinInputOutputs, opSub); err != nil {
-		return err
+		return fmt.Errorf("aggregate inputouts: %v", err)
 	}
 
 	return nil
@@ -119,12 +141,12 @@ func (r *AddressRecorder) Record(blk *Block) error {
 
 	//add miner fees
 	if err := r.processInputOutputs(addresses, blk.RawBlock.MinerPayouts, opAdd); err != nil {
-		return err
+		return fmt.Errorf("process minerfees: %v", err)
 	}
 
-	for _, txn := range blk.Transactions {
+	for i, txn := range blk.Transactions {
 		if err := r.aggregate(addresses, &txn); err != nil {
-			return err
+			return fmt.Errorf("transaction (%d): %v", i, err)
 		}
 	}
 
