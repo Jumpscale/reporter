@@ -66,6 +66,19 @@ func (r *AddressRecorder) unlockHashes(c *Condition) ([]string, error) {
 			return nil, err
 		}
 		hashes = append(hashes, subHashes...)
+	case AtomicSwapCondition:
+		/*
+			Atomic swap always come in 2 transactions. The first one (this one here)
+			defines the potential addresses that can receive the fund (source and dest)
+			then followed by another one that actually moves the fund to either the source (refund)
+			or the dest.
+
+			It means for us we can ignore this atomic swap condition for now, and rely on the second
+			transaction to actually do the move.
+
+			Of course during this time, the (fund) is actually locked (not liquid) and we might
+			have to process this differently if we need to keep track of the liquid vs non-liquid tokens
+		*/
 	default:
 		return nil, fmt.Errorf("unhandled condition type: %v", c.Type)
 	}
