@@ -6,7 +6,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/rivine/reporter"
+	"github.com/Jumpscale/reporter"
 )
 
 func jsonAction(action func(ctx *gin.Context) (interface{}, error)) func(ctx *gin.Context) {

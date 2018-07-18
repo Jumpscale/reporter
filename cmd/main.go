@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/codegangsta/cli"
-	"github.com/rivine/reporter"
-	"github.com/rivine/reporter/app"
+	"github.com/Jumpscale/reporter"
+	"github.com/Jumpscale/reporter/app"
 )
 
 func waitSignal() {

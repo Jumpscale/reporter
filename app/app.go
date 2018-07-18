@@ -4,7 +4,7 @@ import (
 	"context"
 
 	logging "github.com/op/go-logging"
-	"github.com/rivine/reporter"
+	"github.com/Jumpscale/reporter"
 )
 
 var (
