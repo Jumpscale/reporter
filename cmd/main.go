@@ -9,9 +9,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/codegangsta/cli"
 	"github.com/Jumpscale/reporter"
 	"github.com/Jumpscale/reporter/app"
+	"github.com/codegangsta/cli"
 )
 
 func waitSignal() {
@@ -87,7 +87,7 @@ func action(ctx *cli.Context) error {
 	}()
 
 	go func() {
-		if err := api.Run(); err != nil {
+		if err := api.Run(ctx.GlobalString("listen")); err != nil {
 			fmt.Println("api error:", err)
 		}
 	}()
@@ -110,17 +110,20 @@ func main() {
 				Usage: "Explorer url",
 				Value: "http://localhost:23110",
 			},
-
 			cli.StringFlag{
 				Name:  "influx, i",
 				Usage: "Influx database in the form http://host:port/db-name",
 				Value: "http://localhost:8086/rivine",
 			},
-
 			cli.StringFlag{
 				Name:  "home, m",
 				Usage: "Home directory of reporter",
 				Value: "/var/run/reporter",
+			},
+			cli.StringFlag{
+				Name:  "listen, l",
+				Usage: "API listen address",
+				Value: "127.0.0.1:9921",
 			},
 		},
 

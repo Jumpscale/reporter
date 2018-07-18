@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/gin-gonic/gin"
 	"github.com/Jumpscale/reporter"
+	"github.com/gin-gonic/gin"
 )
 
 func jsonAction(action func(ctx *gin.Context) (interface{}, error)) func(ctx *gin.Context) {
@@ -36,7 +36,7 @@ type API struct {
 	AddressRecorder *reporter.AddressRecorder
 }
 
-func (a *API) Run() error {
+func (a *API) Run(listen string) error {
 	engine := gin.Default()
 
 	engine.GET("height", jsonAction(a.height))
@@ -45,7 +45,7 @@ func (a *API) Run() error {
 	engine.GET("address", jsonAction(a.addresses))
 	engine.GET("address/:address", jsonAction(a.address))
 
-	return engine.Run(":8080")
+	return engine.Run(listen)
 }
 
 func (a *API) height(ctx *gin.Context) (interface{}, error) {
