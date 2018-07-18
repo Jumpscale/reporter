@@ -82,13 +82,13 @@ func (r *AddressRecorder) processInputOutputs(addresses Addresses, i []InputOutp
 			var err error
 			unlockHashes, err = r.unlockHashes(&inout.Condition)
 			if err != nil {
-				return fmt.Errorf("at index (%d): err", i)
+				return fmt.Errorf("at index (%d): %s", i, err)
 			}
 		}
 
-		if len(unlockHashes) == 0 {
-			return fmt.Errorf("empty unlock hash")
-		}
+		// if len(unlockHashes) == 0 {
+		// 	return fmt.Errorf("empty unlock hash")
+		// }
 
 		delta, err := inout.Value.Float64()
 		if err != nil {
