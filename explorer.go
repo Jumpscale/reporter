@@ -21,14 +21,7 @@ type RawTransaction struct {
 	} `json:"data"`
 }
 
-type SubCondition struct {
-	Type byte `json:"type"`
-	Data struct {
-		UnlockHash string `json:"unlockhash"`
-	} `json:"data"`
-}
-
-type ConditionType byte
+type ConditionType int
 
 const (
 	NilCondtion ConditionType = iota
@@ -84,7 +77,7 @@ func (c *Condition) TimeLockData() TimeLockConditionData {
 type InputOutput struct {
 	Value      json.Number `json:"value"`
 	UnlockHash string      `json:"unlockhash"`
-	Condition  Condition   `json:"conditions"`
+	Condition  Condition   `json:"condition"`
 }
 
 //Transaction struct
