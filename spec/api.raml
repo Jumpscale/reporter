@@ -1,0 +1,66 @@
+#%RAML 1.0
+title: "rivine-reporter"
+description: API of the reivine-reporter, used for reporting statistics
+version: 0.0.1
+mediaType: application/json
+types:
+  addresses:
+    type: array
+
+/height:
+  description: Return the block chain height
+  get:
+    displayName: GetHeight
+    responses:
+      200:
+        body:
+          type: number
+/tokens:
+  /total:
+    description: Return the total number of tokens on the chain
+    get:
+      displayName: GetTotalTokens
+      responses:
+        200:
+          body:
+            type: number
+  /transacted:
+    description: Get the total transacted tokens on the chain over specific look back period
+    get:
+      displayName: GetTransactedTokens
+      queryParameters:
+        period:
+          type: string
+          pattern: ^\d+(u|ms|s|m|h|d|w)$
+      body:
+        200:
+          type: number
+/address:
+  description: Return all addresses in descending order
+  get:
+    displayName: GetAddresses
+    queryParameters:
+      size?:
+        type: integer
+        description: number of addresses to return per page
+      page?:
+        type: integer
+        description: zero based page number
+      over?:
+        type: number
+        description: Filter only addresses with token greater than or equal this value
+    responses:
+      200:
+        body:
+          type: addresses
+  /{address}:
+    uriParameters:
+      address:
+        type: string
+    get:
+      description: Return tokens on the given address
+      displayName: GetAddress
+      responses:
+        200:
+          body:
+            type: number
